@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <unistd.h>
 
@@ -78,6 +79,11 @@ int main(int argc, char *const argv[])
   // Next default key specified as option (-k)
   uint8_t *defKeys = NULL, *p;
   size_t defKeys_len = 0;
+
+  // For -s option
+  int iSector = -1;
+  int ilSector = 0;
+  uint8_t lSector[16];
 
   // Array with default Mifare Classic keys
   uint8_t defaultKeys[][6] = {
@@ -157,6 +163,18 @@ int main(int argc, char *const argv[])
           exit(EXIT_FAILURE);
         }
         // fprintf(stdout, "Output file: %s\n", optarg);
+        break;
+      case 's':
+        iSector = atoi(optarg);
+        if(!areDigits(optarg) || iSector < 0 || iSector > 15){
+          ERR("-s must be an integer between 0 and 15\n");
+          exit(EXIT_FAILURE);
+        }
+        if(iSector < 0 || iSector > 15){
+          ERR("-s must be an integer between 0 and 15\n");
+          exit(EXIT_FAILURE);
+        }
+        lSector[ilSector++] = iSector;
         break;
       case 'h':
         usage(stdout, 0);
@@ -342,6 +360,10 @@ int main(int argc, char *const argv[])
   for (m = 0; m < 2; ++m) {
     if (e_sector == -1) break; // All keys are default, I am skipping recovery mode
     for (j = 0; j < (t.num_sectors); ++j) {
+      // If option -s is active
+      if(ilSector > 0 && !isInList(lSector, ilSector, j))
+        continue; // Skip to next sector
+      
       memcpy(mp.mpa.abtAuthUid, t.nt.nti.nai.abtUid + t.nt.nti.nai.szUidLen - 4, sizeof(mp.mpa.abtAuthUid));
       if ((dumpKeysA && !t.sectors[j].foundKeyA) || (!dumpKeysA && !t.sectors[j].foundKeyB)) {
 
@@ -454,9 +476,11 @@ int main(int argc, char *const argv[])
 
   for (i = 0; i < (t.num_sectors); ++i) {
     if ((dumpKeysA && !t.sectors[i].foundKeyA) || (!dumpKeysA && !t.sectors[i].foundKeyB)) {
-      fprintf(stdout, "\nTry again, there are still some encrypted blocks\n");
-      succeed = 0;
-      break;
+      if(ilSector > 0 && isInList(lSector, ilSector, i)){
+        fprintf(stdout, "\nTry again, there are still some encrypted blocks %d\n", i);
+        succeed = 0;
+        break;
+      }
     }
   }
 
@@ -576,6 +600,26 @@ void usage(FILE *stream, int errno)
   fprintf(stream, "This is mfoc version %s.\n", PACKAGE_VERSION);
   fprintf(stream, "For more information, run: 'man mfoc'.\n");
   exit(errno);
+}
+
+static bool areDigits(char* str){
+  for (int i = 0; i < strlen(str); ++i) {
+    if (!isdigit(str[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool isInList(uint8_t* list, int size, int token){
+  bool found = false;
+  for(int i=0; i < size; i++){
+    if(list[i] == token){
+      found = true;
+      break;
+    }
+  }
+  return found;
 }
 
 void mf_init(mfreader *r)

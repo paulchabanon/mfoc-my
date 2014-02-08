@@ -84,3 +84,5 @@ int compar_special_int(const void *a, const void *b);
 countKeys *uniqsort(uint64_t *possibleKeys, uint32_t size);
 void num_to_bytes(uint64_t n, uint32_t len, uint8_t *dest);
 long long unsigned int bytes_to_num(uint8_t *src, uint32_t len);
+static bool areDigits(char* str);
+static bool isInList(uint8_t* list, int size, int token);
